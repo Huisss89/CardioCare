@@ -20,11 +20,15 @@ The application integrates AI-driven analytics to provide personalized health in
 |----------|----------|----------|----------|
 |![Welcome Screen](assets/images/Welcome4.png) |  ![Welcome Screen](assets/images/Welcome5.png)  |  ![Login Screen](assets/images/Login.png) | ![AI Assistant Screen](assets/images/AIAssistant.png)|
 
+|Home Screen & History Screen & Profile Screen & Blood Pressure Logging Screen|
+|----------|
+|![All Screen](assets/images/AllScreen.png) | 
+
 |Trend Screen |
 |----------|
 |![Trend Screen](assets/images/Trend.png) | 
 
-|Measurement Screen |
+|Measurement & Result Screen |
 |----------|
 |![Measurement Screen](assets/images/Measurement.png) | 
 
