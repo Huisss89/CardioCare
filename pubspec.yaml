@@ -1,0 +1,71 @@
+name: cardio_care
+description: "CardioCare - Cardiac Health Monitoring App"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  intl: ^0.19.0    
+  cupertino_icons: ^1.0.8
+  
+  # Welcome Page
+  lottie: ^3.1.0
+
+  # Camera and Data Processing
+  camera: ^0.10.5+9
+  shared_preferences: ^2.2.2
+
+  # models & ML
+  path_provider: ^2.0.15
+  tflite_flutter: ^0.12.0
+  scidart: ^0.0.1-dev.3 
+  collection: ^1.17.1 
+
+  # firebase
+  firebase_auth: ^5.3.2
+  firebase_core: ^3.3.0
+  firebase_analytics: ^11.0.0
+  cloud_firestore: ^5.4.4
+
+  # SCIDART AND NUMDART (CRITICAL FOR PPG PROCESSING)
+  #numdart: ^0.0.1
+  http: ^1.2.1 # or the latest version
+  google_sign_in: ^6.2.1
+
+  # Export & Share
+  excel: ^4.0.6
+  pdf: ^3.11.3
+  share_plus: ^7.2.2
+  cross_file: ^0.3.4+2
+
+  # Reminders
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
+  numberpicker: ^2.1.2
+  flutter_timezone: ^3.0.0
+
+  # Network Checks
+  connectivity_plus: ^5.0.0
+
+  # AI Assistant
+  google_generative_ai: ^0.4.6
+  flutter_markdown: ^0.7.3   # if not already added
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter: 
+  uses-material-design: true
+
+  assets:
+    - assets/images/finger_placement.png
+    - assets/images/google-icon-logo.png
+    - assets/animations/
+
