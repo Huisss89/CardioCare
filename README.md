@@ -38,7 +38,36 @@ flutter run
 
 
 
-## License
+# 📲 Usage
+How to use CardioCare
+
+1. Launch the CardioCare app
+2. Place your fingertip over the camera and flash
+3. Wait for signal processing
+4. _View your results:_
+
+__1. Heart Rate (HR)__
+
+__2. Heart Rate Variability (HRV)__
+
+__3. Estimated Blood Pressure (BP)__
+
+_Optional features:_
+
+__1. Log manual BP readings__
+
+__2. Chat with AI assistant__
+
+__3. Review trends and recommendations__
+
+
+
+
+## ⚠️ Disclaimer
+CardioCare is not a medical device and should not be used for clinical diagnosis. Always consult a healthcare professional for medical advice.
+
+
+## 📄 License
 
 Distributed under the MIT License. See [License](https://choosealicense.com/licenses/mit/) for more information.
 
