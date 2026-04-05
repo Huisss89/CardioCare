@@ -52,11 +52,10 @@ A FastAPI-based backend with machine learning models for cardiac monitoring and 
 
 
 
-
 ## 🧑🏻‍💻 Installation
 Clone the repository 
 ```bash
-  git clone https://github.com/Huisss89/CardioCare.git
+git clone https://github.com/Huisss89/CardioCare.git
 ```
 Go to the project directory
 ```bash
@@ -67,6 +66,20 @@ Flutter pub get and run
 flutter pub get
 flutter run
 ```
+
+
+## ⚙️ Configuration
+This project uses environment variables for sensitive data.
+
+Before running the app, provide your API key using --dart-define:
+```bash
+flutter run --dart-define=GEMINI_API_KEY=your_api_key_here
+```
+For release build:
+```bash
+flutter build apk --dart-define=GEMINI_API_KEY=your_api_key_here
+```
+
 
 
 # 📲 How to use CardioCare
@@ -81,7 +94,9 @@ flutter run
   _Optional features:_
  - Log manual BP readings
  - Chat with AI assistant
-- Review trends and recommendations
+ - Review trends and recommendations
+ - Set reminders
+ - Export health records
 
 
 
