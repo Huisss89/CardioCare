@@ -61,16 +61,13 @@ Predicts BP
 
 ## 🔗Backend & Models
 A FastAPI-based backend with machine learning models for cardiac monitoring and BP estimation using PPG signals.
-1. Signal Quality Index (SQI) Model
-- PPG Signal Quality Assessment
+1. **PPG Signal Quality Assessment Model**
 - https://github.com/Huisss89/Cardio_PPG_SQI
 
-2. Heart Rate (HR) and Heart Rate Variability (HRV) Measurement Model
-- PPG Signal Processing
+2. **Heart Rate (HR) and Heart Rate Variability (HRV) Measurement Model**
 - https://github.com/Huisss89/Cardio_PPG_HR
 
-3. Blood Pressure Estimation (BP) Model
-- PPG Signal Processing
+3. **Blood Pressure Estimation (BP) Model**
 - https://github.com/Huisss89/Cardio_BP_Estimation_PPG_Only
 
 
