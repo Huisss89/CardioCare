@@ -3,7 +3,7 @@ class AppConfig {
 
   static const String geminiApiKey = String.fromEnvironment(
     'GEMINI_API_KEY',
-    defaultValue: 'AIzaSyD3srwdqxd07dBnfJ_NgKr9rfhjnqKyyrs',
+    defaultValue: '',
   );
 
   static const String hrApiUrl = String.fromEnvironment(
