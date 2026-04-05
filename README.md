@@ -48,7 +48,7 @@ A FastAPI-based backend with machine learning models for cardiac monitoring and 
 
 3. Blood Pressure Estimation (BP) Model
 - PPG Signal Processing
--https://github.com/Huisss89/Cardio_BP_Estimation_PPG_Only
+- https://github.com/Huisss89/Cardio_BP_Estimation_PPG_Only
 
 
 
@@ -69,9 +69,7 @@ flutter run
 ```
 
 
-# 📲 Usage
-How to use CardioCare
-
+# 📲 How to use CardioCare
 1. Launch the CardioCare app
 2. Place your fingertip over the camera and flash
 3. Wait for signal processing
