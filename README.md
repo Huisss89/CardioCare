@@ -10,6 +10,13 @@ CardioCare is an Android-based mobile application designed to support preventive
 The application integrates AI-driven analytics to provide personalized health insights and without requiring external devices like smartwatches.
 
 
+## 📸 User Interface
+
+|Splash Screen | Welcome Screen | Welcome Screen | Welcome Screen |
+|----------|----------|----------|----------|
+| ![Splash Screen](assets/images/LogoScreen.png)| ![Welcome Screen](assets/images/Welcome1.png) |  ![Welcome Screen](assets/images/Welcome1.png) | ![Welcome Screen](assets/images/Welcome1.png)|
+
+
 ## 💡 Features
 
 - PPG-Based Cardiac Monitoring
