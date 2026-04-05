@@ -24,17 +24,45 @@ Predicts BP
 
 
 
+# 👨🏻‍💻Technical Components - Products and Platforms
+
+- Flutter
+- Android Studio 
+- FastAPI (Python) 
+- Render 
+- Google AI Studio
+- Firebase Authentication 
+- Firestore Database (NoSQL) 
+
+
+
+# 🔗Backend & Models
+A FastAPI-based backend with machine learning models for cardiac monitoring and BP estimation using PPG signals.
+1. Signal Quality Index (SQI) Model
+- PPG Signal Quality Assessment
+- https://github.com/Huisss89/Cardio_PPG_SQI
+
+2. Heart Rate (HR) and Heart Rate Variability (HRV) Measurement Model
+- PPG Signal Processing
+- https://github.com/Huisss89/Cardio_PPG_HR
+
+3. Blood Pressure Estimation (BP) Model
+- PPG Signal Processing
+-https://github.com/Huisss89/Cardio_BP_Estimation_PPG_Only
+
+
+
 
 ## 🧑🏻‍💻 Installation
-- Clone the repository 
+Clone the repository 
 ```bash
   git clone https://github.com/Huisss89/CardioCare.git
 ```
-- Go to the project directory
+Go to the project directory
 ```bash
 cd Huisss89
 ```
-- Flutter pub get and run
+Flutter pub get and run
 ```bash
 flutter pub get
 flutter run
@@ -52,7 +80,7 @@ How to use CardioCare
 - Heart Rate Variability (HRV)
 - Estimated Blood Pressure (BP)
 
-_Optional features:_
+  _Optional features:_
  - Log manual BP readings
  - Chat with AI assistant
 - Review trends and recommendations
