@@ -17,7 +17,11 @@ Measures HR and HRV using fingertip detection via smartphone camera
 - AI-Based Blood Pressure Estimation
 Predicts BP
 - Manual BP Logging and classify BP in normal, elevated and high category
-- Smart Health Insights (Trend analysis of HR, HRV, and BP, Personalized lifestyle recommendations, AI Assistant Chatbot for health-related queries)
+- Smart Health Insights 
+    - Trend analysis of HR, HRV, and BP
+    - Personalized lifestyle recommendations
+    - AI Assistant Chatbot for health-related queries
+
 
 
 
