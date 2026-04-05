@@ -24,7 +24,7 @@ Predicts BP
 
 
 
-# 👨🏻‍💻Technical Components - Products and Platforms
+## 👨🏻‍💻Technical Components - Products and Platforms
 
 - Flutter
 - Android Studio 
@@ -36,7 +36,7 @@ Predicts BP
 
 
 
-# 🔗Backend & Models
+## 🔗Backend & Models
 A FastAPI-based backend with machine learning models for cardiac monitoring and BP estimation using PPG signals.
 1. Signal Quality Index (SQI) Model
 - PPG Signal Quality Assessment
@@ -81,8 +81,7 @@ flutter build apk --dart-define=GEMINI_API_KEY=your_api_key_here
 ```
 
 
-
-# 📲 How to use CardioCare
+## 📲 How to use CardioCare
 1. Launch the CardioCare app
 2. Place your fingertip over the camera and flash
 3. Wait for signal processing
