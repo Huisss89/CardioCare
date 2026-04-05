@@ -20,6 +20,9 @@ The application integrates AI-driven analytics to provide personalized health in
 |----------|----------|----------|----------|
 |![Welcome Screen](assets/images/Welcome4.png) |  ![Welcome Screen](assets/images/Welcome5.png)  |  ![Login Screen](assets/images/Login.png) | ![AI Assistant Screen](assets/images/AIAssistant.png)|
 
+|Trend Screen |
+|----------|
+|![Trend Screen](assets/images/Trend.png) | 
 
 
 ## 💡 Features
