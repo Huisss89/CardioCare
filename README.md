@@ -24,6 +24,10 @@ The application integrates AI-driven analytics to provide personalized health in
 |----------|
 |![Trend Screen](assets/images/Trend.png) | 
 
+|Measurement Screen |
+|----------|
+|![Measurement Screen](assets/images/Measurement.png) | 
+
 
 ## 💡 Features
 
