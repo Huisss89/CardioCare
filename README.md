@@ -37,7 +37,6 @@ flutter run
 ```
 
 
-
 # 📲 Usage
 How to use CardioCare
 
@@ -45,21 +44,14 @@ How to use CardioCare
 2. Place your fingertip over the camera and flash
 3. Wait for signal processing
 4. _View your results:_
-
-__1. Heart Rate (HR)__
-
-__2. Heart Rate Variability (HRV)__
-
-__3. Estimated Blood Pressure (BP)__
+- Heart Rate (HR)
+- Heart Rate Variability (HRV)
+- Estimated Blood Pressure (BP)
 
 _Optional features:_
-
-__1. Log manual BP readings__
-
-__2. Chat with AI assistant__
-
-__3. Review trends and recommendations__
-
+ - Log manual BP readings
+ - Chat with AI assistant
+- Review trends and recommendations
 
 
 
