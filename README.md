@@ -60,7 +60,7 @@ Predicts BP
 
 
 ## 🔗Backend & Models
-A FastAPI-based backend with machine learning models for cardiac monitoring and BP estimation using PPG signals.
+A FastAPI-based backend with machine learning models for cardiac monitoring and HR, HRV and BP estimation using PPG signals.
 1. **PPG Signal Quality Assessment Model**
 - https://github.com/Huisss89/Cardio_PPG_SQI
 
