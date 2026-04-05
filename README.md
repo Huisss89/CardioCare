@@ -3,9 +3,9 @@
 
 CardioCare is an Android-based mobile application designed to support preventive hypertension management using smartphone technology. By leveraging computer vision and photoplethysmography (PPG) via the smartphone camera and flash, the app enables users to monitor key cardiovascular indicators such as:
 
-- Heart Rate (HR)
-- Heart Rate Variability (HRV)
-- Estimated Blood Pressure (BP)
+- **Heart Rate (HR)**
+- **Heart Rate Variability (HRV)**
+- **Estimated Blood Pressure (BP)**
 
 The application integrates AI-driven analytics to provide personalized health insights and without requiring external devices like smartwatches.
 
@@ -103,22 +103,31 @@ For release build:
 flutter build apk --dart-define=GEMINI_API_KEY=your_api_key_here
 ```
 
+For Firebase Configuration:
+1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com)
+2. Add an Android app to your project
+3. Download the `google-services.json` file
+4. Place it in:
+```bash
+android/app/
+```
+5. Add your `SHA-1 fingerprint` in Firebase Console (required for authentication)
+
 
 ## 📲 How to use CardioCare
 1. Launch the CardioCare app
 2. Place your fingertip over the camera and flash
 3. Wait for signal processing
 4. _View your results:_
-- Heart Rate (HR)
-- Heart Rate Variability (HRV)
-- Estimated Blood Pressure (BP)
+- **Heart Rate (HR)**
+- **Heart Rate Variability (HRV)**
+- **Estimated Blood Pressure (BP)**
 
   _Optional features:_
- - Log manual BP readings
- - Chat with AI assistant
- - Review trends and recommendations
- - Set reminders
- - Export health records
+- **Log manual BP readings**
+- **Chat with AI assistant**
+- **Set reminders**
+- **Export health records**
 
 
 
