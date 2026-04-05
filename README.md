@@ -14,11 +14,11 @@ The application integrates AI-driven analytics to provide personalized health in
 
 |Splash Screen | Welcome Screen | Welcome Screen | Welcome Screen |
 |----------|----------|----------|----------|
-| ![Splash Screen](assets/images/LogoScreen.png)| ![Welcome Screen](assets/images/Welcome1.png) |  ![Welcome Screen](assets/images/Welcome2.png) | ![Welcome Screen](assets/images/Welcome3.png)|
+| ![Splash Screen](assets/images/LogoScreen.png)| ![Welcome Screen](assets/images/Welcome1.png) |  ![Welcome Screen](assets/images/Welcom2.png) | ![Welcome Screen](assets/images/Welcome3.png)|
 
 |Welcome Screen | Welcome Screen | Login Screen | Home Screen |
 |----------|----------|----------|----------|
-|![Welcome Screen](assets/images/Welcome4.png) |  ![Welcome Screen](assets/images/Welcome5.png)  |  ![Login Screen](assets/images/Login.png) | ![Home Screen](assets/images/Home.png)|
+|![Welcome Screen](assets/images/Welcome4.png) |  ![Welcome Screen](assets/images/Welcome5.png)  |  ![Login Screen](assets/images/Login.png) | ![Home Screen](assets/images/Home.jpg)|
 
 
 ## 💡 Features
