@@ -141,11 +141,11 @@ class _BPLoggingScreenState extends State<BPLoggingScreen> {
     } else if (category == 'High BP Stage 2') {
       dynamicContent =
           'Serious Warning: Your recorded BP is in Stage 2 Hypertension ($systolic/$diastolic mmHg). Please consult a healthcare professional immediately.';
-      buttonText = 'Seek Advice';
+      buttonText = 'Got it';
     } else if (category == 'Hypertensive Crisis') {
       dynamicContent =
           '🚨 URGENT: Your recorded BP is critical ($systolic/$diastolic mmHg)! Seek emergency medical attention right now.';
-      buttonText = 'Seek Advice';
+      buttonText = 'Got it';
     } else {
       dynamicContent =
           'Your recorded BP is $systolic/$diastolic mmHg. Check the Category Guide below for details.';

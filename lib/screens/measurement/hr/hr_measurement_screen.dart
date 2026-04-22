@@ -36,37 +36,12 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
   static const double _targetFrameRate = 30;
   static const int _targetDurationSeconds = 20;
   DateTime? _collectionStartTime; // Used to compute actual sample rate
+  static const int _kWarmupFrames = 30; // ~1 s — let torch stabilise
+  static const int _kBadFrameLimit = 20; // ~0.67 s consecutive bad → redirect
 
-  // ── Finger removal detection ────────────────────────────────────────────
-  // Strategy: learn the baseline brightness during the first ~1s (warmup),
-  // then flag a frame as "bad" if its brightness drops more than 40% below
-  // that baseline. This is lighting-environment-independent — it doesn't
-  // matter whether the room is bright or dark, what matters is the DROP
-  // relative to what the camera saw with the finger confirmed on.
-  //
-  // A heartbeat pulse typically shifts brightness by ~5–15%. Removing the
-  // finger drops brightness by 40–80% (flash no longer passes through tissue).
-  // So a 40% drop threshold sits safely between the two.
-  //
-  // Uses a sliding window so brief micro-lifts (1–3 frames) don't trigger
-  // a redirect. Needs >70% of the last 45 frames to be "bad" to redirect.
-  // NEW VALUES (more sensitive detection):
-  static const int _warmupFrames = 30; // Keep same - 1s warmup
-  static const int _windowSize = 30; // Reduced from 45 to 30 (1 second window)
-  static const int _badFrameLimit =
-      20; // Reduced from 32 to 20 (67% bad = redirect)
-  static const double _dropRatio =
-      0.35; // Reduced from 0.40 to 0.35 (more sensitive)
+  int _warmupFrameCount = 0;
   int _consecutiveBadFrames = 0;
-  static const int _immediateRedirectThreshold =
-      15; // 15 consecutive bad frames (~0.5s)
-  int _cameraInitAttempts = 0;
-  static const int _maxCameraInitAttempts = 3;
-
-  double _baselineBrightness = 0; // mean brightness measured during warmup
-  int _warmupSum = 0; // accumulator for baseline calculation
-  int _warmupCount = 0;
-  final List<bool> _fingerWindow = [];
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Guards — all written/read on main thread via addPostFrameCallback
   bool _isRedirecting = false;
@@ -95,8 +70,6 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
       orElse: () => cameras.first,
     );
 
-    // FIX 1: FingerGuideScreen already disposed its controller before
-    // navigating here — only a short settle delay is needed now.
     await Future.delayed(const Duration(milliseconds: 300));
 
     if (!mounted) return;
@@ -117,12 +90,25 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
       }
 
       await _controller!.setFlashMode(FlashMode.torch);
-      await _controller!.setExposureMode(ExposureMode.locked);
       await _controller!.setFocusMode(FocusMode.locked);
+      // Wait for auto-exposure to adapt to torch light BEFORE locking.
+      // Locking immediately captures a dark "normal scene" exposure value,
+      // which is why the preview looks nearly black with a finger on it.
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      try {
+        final double minEV = await _controller!.getMinExposureOffset();
+        final double maxEV = await _controller!.getMaxExposureOffset();
+        // +1 EV brightens the preview enough to clearly see finger placement.
+        final double targetEV = 1.0.clamp(minEV, maxEV);
+        await _controller!.setExposureOffset(targetEV);
+      } catch (_) {
+        // Exposure offset not supported on this device — safe to ignore.
+      }
+      await _controller!.setExposureMode(ExposureMode.locked);
 
       setState(() {});
 
-      // FIX 2: Start collection faster — 600ms instead of 1500ms
       Future.delayed(const Duration(milliseconds: 600), () {
         if (mounted && !_isCollecting && !_isRedirecting) {
           _startCollection();
@@ -137,40 +123,21 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
     }
   }
 
-  // Returns the mean brightness of the central 80×80 pixel region (Y-plane).
-  double _getMeanBrightness(CameraImage image) {
-    if (image.format.group != ImageFormatGroup.yuv420) return -1;
-    final int width = image.width;
-    final int height = image.height;
-    final List<int> yPlane = image.planes[0].bytes;
-    final int yStride = image.planes[0].bytesPerRow;
-    final int cx = width ~/ 2;
-    final int cy = height ~/ 2;
-    const int range = 40;
-    int sum = 0, count = 0;
-    for (int y = cy - range; y < cy + range; y += 2) {
-      for (int x = cx - range; x < cx + range; x += 2) {
-        if (y >= 0 && y < height && x >= 0 && x < width) {
-          final int idx = y * yStride + x;
-          if (idx < yPlane.length) {
-            sum += yPlane[idx];
-            count++;
-          }
-        }
-      }
-    }
-    return count > 0 ? sum / count : -1;
-  }
+  // ── Finger-loss check (RGB red-channel) ───────────────────────────────────
 
-  // Returns true if brightness indicates the finger is still present.
-  // Compares against the personal baseline learned during warmup — this makes
-  // detection independent of room lighting or device flash brightness.
-  // A real finger-off event drops brightness by 40–80%; a heartbeat pulse
-  // only shifts it by 5–15%, so a 40% drop threshold reliably separates them.
-  bool _isFingerStillPresent(double brightness) {
-    if (brightness < 0) return true; // unknown format — don't penalise
-    if (_baselineBrightness <= 0) return true; // baseline not ready yet
-    return brightness >= _baselineBrightness * (1.0 - _dropRatio);
+  bool _checkFingerLoss(CameraImage image) {
+    if (_warmupFrameCount < _kWarmupFrames) {
+      _warmupFrameCount++;
+      return false;
+    }
+
+    if (isLensCovered(image)) {
+      _consecutiveBadFrames = 0;
+      return false;
+    } else {
+      _consecutiveBadFrames++;
+      return _consecutiveBadFrames >= _kBadFrameLimit;
+    }
   }
 
   int _extractGreenValue(CameraImage image) {
@@ -204,8 +171,6 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
     return count > 0 ? (sum / count).round() : 128;
   }
 
-  // FIX 4: Trigger is synchronous (sets flag immediately to drop frames),
-  // but actual camera disposal + navigation runs on main thread via callback.
   void _triggerReturnToFingerGuide() {
     if (_isRedirecting) return;
     _isRedirecting = true;
@@ -213,13 +178,10 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
     _collectionTimer?.cancel();
     _collectionTimer = null;
 
-    // KEY FIX: Grab controller ref and null it via setState immediately.
-    // This forces a rebuild to the loading screen before any async disposal,
-    // preventing "buildPreview() was called on a disposed CameraController".
     final CameraController? ctrl = _controller;
     if (mounted) {
       setState(() {
-        _controller = null; // UI rebuilds → loading screen, CameraPreview stops
+        _controller = null;
         _isCollecting = false;
         _isProcessing = false;
       });
@@ -250,8 +212,6 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
           ),
         );
 
-        // FIX 6: Pass cameraAlreadyReleased=true so FingerGuideScreen
-        // knows we properly disposed and uses a shorter settle delay
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -277,11 +237,9 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
       _isRedirecting = false;
       _isStoppingManually = false;
       _rawGreenSignal.clear();
-      _fingerWindow.clear();
-      _baselineBrightness = 0;
-      _warmupSum = 0;
-      _warmupCount = 0;
-      _consecutiveBadFrames = 0; // ADD THIS LINE
+      // Reset finger-loss counters
+      _warmupFrameCount = 0;
+      _consecutiveBadFrames = 0;
       _collectionStartTime = DateTime.now();
     });
 
@@ -291,55 +249,11 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
 
         _frameCounter++;
 
-        // ── Baseline learning (warmup phase) ────────────────────────────
-        // During the first _warmupFrames frames the finger is confirmed on
-        // (FingerGuideScreen verified it before navigating here). Accumulate
-        // brightness to build a personal baseline for THIS user's finger and
-        // THIS device's flash intensity.
-        final double brightness = _getMeanBrightness(image);
-
-        if (_frameCounter <= _warmupFrames) {
-          if (brightness > 0) {
-            _warmupSum += brightness.round();
-            _warmupCount += 1;
-            // Finalise baseline on the last warmup frame
-            if (_frameCounter == _warmupFrames && _warmupCount > 0) {
-              _baselineBrightness = _warmupSum / _warmupCount;
-              print(
-                  '[FingDet] baseline=${_baselineBrightness.toStringAsFixed(1)}');
-            }
-          }
-        } else {
-          // ── Detection phase (dual-check: immediate + sliding window) ────
-          final bool fingerPresent = _isFingerStillPresent(brightness);
-
-          // IMMEDIATE CHECK: Count consecutive bad frames
-          if (!fingerPresent) {
-            _consecutiveBadFrames++;
-            // If 15 consecutive bad frames (~0.5s), redirect immediately
-            if (_consecutiveBadFrames >= _immediateRedirectThreshold) {
-              print('[BP FingDet] Immediate removal detected!');
-              _triggerReturnToFingerGuide();
-              return;
-            }
-          } else {
-            // Reset counter when finger is detected again
-            _consecutiveBadFrames = 0;
-          }
-
-          // SLIDING WINDOW CHECK: Overall trend over 1 second
-          _fingerWindow.add(fingerPresent);
-          if (_fingerWindow.length > _windowSize) {
-            _fingerWindow.removeAt(0);
-          }
-          if (_fingerWindow.length >= _windowSize) {
-            final int badCount = _fingerWindow.where((v) => !v).length;
-            if (badCount > _badFrameLimit) {
-              print('[BP FingDet] Sustained removal detected via window!');
-              _triggerReturnToFingerGuide();
-              return;
-            }
-          }
+        // ── Finger-loss check (RGB red-channel) — runs before signal collection
+        if (_checkFingerLoss(image)) {
+          print('[HR FingDet] Finger removal detected via RGB red-channel!');
+          _triggerReturnToFingerGuide();
+          return; // don't add bad frames to the signal
         }
 
         final int greenValue = _extractGreenValue(image);
@@ -518,7 +432,7 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
           'Server Error (${sqiResponse.statusCode})',
           detail.isNotEmpty
               ? detail
-              : 'PPG SQI check failed. Please try again.',
+              : 'Fingertip PPG Signal Quality check failed. Please try again.',
         );
         return;
       }
@@ -714,11 +628,6 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
                   'This may take up to 30 seconds.\nPlease keep the app open.',
                   style: TextStyle(color: Colors.white70, fontSize: 15),
                   textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  '$_displaySamples samples collected.',
-                  style: const TextStyle(color: Colors.white38, fontSize: 13),
                 ),
               ],
             ),

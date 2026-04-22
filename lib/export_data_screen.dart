@@ -227,26 +227,70 @@ class _ExportDataScreenState extends State<ExportDataScreen> {
         await _createPdfFile(filePath);
       }
 
-      await Share.shareXFiles(
+      // Check the share result status — resolves regardless of whether
+      // the user actually completed the share or dismissed the sheet.
+      final result = await Share.shareXFiles(
         [XFile(filePath)],
         text: 'My CardioTrack health records - HR, HRV & BP',
         subject: 'CardioTrack Health Data Export',
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 12),
-                Text('Exported and shared as ${format.toUpperCase()}'),
-              ],
+        if (result.status == ShareResultStatus.success) {
+          // User picked a share target and completed the share
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Text('Exported and shared as ${format.toUpperCase()}'),
+                ],
+              ),
+              backgroundColor: const Color(0xFF48BB78),
+              behavior: SnackBarBehavior.floating,
             ),
-            backgroundColor: const Color(0xFF48BB78),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+          );
+        } else if (result.status == ShareResultStatus.dismissed) {
+          // User opened the share sheet but dismissed it without sharing
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '${format.toUpperCase()} file was not shared. Tap the button again to retry.',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFFED8936),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else {
+          // ShareResultStatus.unavailable — platform couldn't determine outcome
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '${format.toUpperCase()} file ready but share status is unknown.',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF718096),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

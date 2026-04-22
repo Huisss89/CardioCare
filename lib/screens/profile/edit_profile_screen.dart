@@ -457,10 +457,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 label: 'Full Name',
                                 hint: 'Enter your name',
                                 icon: Icons.person_outline_rounded,
-                                validator: (v) =>
-                                    (v == null || v.trim().isEmpty)
-                                        ? 'Name is required'
-                                        : null,
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty)
+                                    return 'Name is required';
+                                  final name = v.trim();
+                                  final nameRegExp = RegExp(r"^[a-zA-Z\s'-]+$");
+                                  if (name.length < 2)
+                                    return 'Name must be at least 2 characters.';
+                                  if (!nameRegExp.hasMatch(name))
+                                    return 'Name can only contain letters and spaces.';
+                                  return null;
+                                },
                               ),
                               const SizedBox(height: 20),
                               _buildTextField(
@@ -473,8 +480,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   if (v == null || v.isEmpty)
                                     return 'Age is required';
                                   final n = int.tryParse(v);
-                                  if (n == null || n < 1 || n > 150) {
-                                    return 'Enter a valid age (1-150)';
+                                  if (n == null || n < 1 || n > 100) {
+                                    return 'Enter a valid age (1-100)';
                                   }
                                   return null;
                                 },
@@ -492,8 +499,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   if (v == null || v.isEmpty)
                                     return 'Weight is required';
                                   final n = double.tryParse(v);
-                                  if (n == null || n < 20 || n > 300) {
-                                    return 'Enter a valid weight (20-300 kg)';
+                                  if (n == null || n < 50 || n > 250) {
+                                    return 'Enter a valid weight (50-250 kg)';
                                   }
                                   return null;
                                 },
@@ -747,13 +754,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           return 'Password must be at least 8 characters';
                         }
                         if (!RegExp(r'[A-Z]').hasMatch(v)) {
-                          return 'Include at least one uppercase letter';
+                          return 'Include at least one uppercase character';
                         }
                         if (!RegExp(r'[0-9]').hasMatch(v)) {
-                          return 'Include at least one number';
+                          return 'Include at least one digit';
                         }
                         if (v == _currentPasswordController.text) {
-                          return 'New password must differ from current';
+                          return 'New password must differ from the current';
                         }
                         return null;
                       },
@@ -773,7 +780,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           return 'Please confirm your new password';
                         }
                         if (v != _newPasswordController.text) {
-                          return 'Passwords do not match';
+                          return 'Passwords do not match!';
                         }
                         return null;
                       },
@@ -797,7 +804,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Password must be at least 8 characters and include an uppercase letter and a number.',
+                              'Password must be at least 8 characters and include an uppercase character and a digit',
                               style: TextStyle(
                                 fontSize: 12,
                                 color:

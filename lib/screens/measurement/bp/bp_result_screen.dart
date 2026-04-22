@@ -139,12 +139,12 @@ class _BPResultScreenState extends State<BPResultScreen> {
       dialogTitle = 'High BP Stage 2';
       dynamicContent =
           'Serious Warning: Your BP is in Stage 2 Hypertension ($systolic/$diastolic mmHg). Please consult a healthcare professional immediately.';
-      buttonText = 'Seek Advice';
+      buttonText = 'Got it';
     } else if (category == 'Hypertensive Crisis') {
       dialogTitle = '🚨 URGENT: CRISIS';
       dynamicContent =
           '🚨 URGENT: Your BP is critical ($systolic/$diastolic mmHg)! Seek emergency medical attention right now.';
-      buttonText = 'Seek Advice';
+      buttonText = 'Got it';
     } else {
       dialogTitle = 'BP Classification';
       dynamicContent =

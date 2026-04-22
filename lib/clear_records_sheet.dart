@@ -164,7 +164,7 @@ class _ClearRecordsSheetState extends State<_ClearRecordsSheet> {
       case 'hr':
         return Icons.favorite_rounded;
       case 'bp_est':
-        return Icons.monitor_heart_rounded;
+        return Icons.water_drop_rounded;
       case 'bp_log':
         return Icons.edit_note_rounded;
       default:
@@ -179,7 +179,7 @@ class _ClearRecordsSheetState extends State<_ClearRecordsSheet> {
       case 'bp_est':
         return 'BP Estimation';
       case 'bp_log':
-        return 'BP Log';
+        return 'Recorded BP';
       default:
         return 'Record';
     }

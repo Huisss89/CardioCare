@@ -14,61 +14,83 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   bool _isLoading = false;
 
   Future<void> _resetPassword() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    // ── Email format validation ───────────────────────────────────────────────
+    final email = _emailController.text.trim();
+    final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$');
 
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final email = _emailController.text.trim();
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content:
-              Text('Password reset link sent to $email! Check your inbox!'),
-          backgroundColor: const Color(0xFF48BB78),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-
-      // Navigate back to the Login Screen
-      Navigator.pop(context);
-    } on FirebaseAuthException catch (e) {
-      String message;
-      if (e.code == 'user-not-found') {
-        message = 'No user found for that email. Please check the address.';
-      } else {
-        message = 'An error occurred. Please try again later.';
-        print("Firebase Auth Error: ${e.code} - ${e.message}");
-      }
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $message'),
-          backgroundColor: const Color(0xFFF56565),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      // General error
+    if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Network or Unknown Error. Please try again.'),
+          content: Text('Please enter your email address.'),
           backgroundColor: Color(0xFFF56565),
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } finally {
+      return;
+    }
+
+    if (!emailRegex.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email address.'),
+          backgroundColor: Color(0xFFF56565),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Password reset link sent to $email! Check your inbox!'),
+            backgroundColor: const Color(0xFF48BB78),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context);
       }
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'network-request-failed':
+          message =
+              'No internet connection. Please check your network and try again.';
+          break;
+        case 'invalid-email':
+          message = 'Please enter a valid email address.';
+          break;
+        default:
+          message = 'An error occurred. Please try again later.';
+          print("Firebase Auth Error: ${e.code} - ${e.message}");
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$message'),
+            backgroundColor: const Color(0xFFF56565),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Network or unknown error. Please try again.'),
+            backgroundColor: Color(0xFFF56565),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -135,14 +157,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null ||
-                        value.isEmpty ||
-                        !value.contains('@')) {
-                      return 'Please enter a valid email address.';
-                    }
-                    return null;
-                  },
                   decoration: InputDecoration(
                     labelText: 'Email',
                     prefixIcon: const Icon(Icons.email_outlined,

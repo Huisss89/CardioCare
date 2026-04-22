@@ -34,36 +34,24 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
   static const double _targetFrameRate = 30.0;
   static const int _targetDurationSeconds = 20;
   DateTime? _collectionStartTime;
+  static const int _kWarmupFrames = 30; // ~1 s — let torch stabilise
+  static const int _kBadFrameLimit = 20; // ~0.67 s consecutive bad → redirect
 
-  // ── Finger removal detection (same adaptive baseline as HRMeasurementScreen)
-// NEW VALUES (more sensitive detection):
-  static const int _warmupFrames = 30; // Keep same - 1s warmup
-  static const int _windowSize = 30; // Reduced from 45 to 30 (1 second window)
-  static const int _badFrameLimit =
-      20; // Reduced from 32 to 20 (67% bad = redirect)
-  static const double _dropRatio =
-      0.35; // Reduced from 0.40 to 0.35 (more sensitive)
+  int _warmupFrameCount = 0;
   int _consecutiveBadFrames = 0;
-  static const int _immediateRedirectThreshold =
-      15; // 15 consecutive bad frames (~0.5s)
+  bool _isRedirecting = false;
+  // ─────────────────────────────────────────────────────────────────────────
+
   int _cameraInitAttempts = 0;
   static const int _maxCameraInitAttempts = 3;
 
-  double _baselineBrightness = 0;
-  int _warmupSum = 0;
-  int _warmupCount = 0;
-  final List<bool> _fingerWindow = [];
-  bool _isRedirecting = false;
   int _frameCounter = 0;
   static const int _uiUpdateInterval = 10;
   int _displaySamples = 0;
 
-  // --- NEW: Separate API URLs ---
-  // Use the new SQI API URL
   final String _sqiApiUrl = AppConfig.sqiApiUrl;
   final String _bpEstimationApiUrl = AppConfig.bpApiUrl;
 
-  // User Demographics
   int? _userAge;
   int? _userGender;
   int? _userHeight;
@@ -75,36 +63,26 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
     _loadUserDataAndInitCamera();
   }
 
-  // Finger detection helpers — identical logic to HRMeasurementScreen
-  double _getMeanBrightness(CameraImage image) {
-    if (image.format.group != ImageFormatGroup.yuv420) return -1;
-    final int width = image.width;
-    final int height = image.height;
-    final List<int> yPlane = image.planes[0].bytes;
-    final int yStride = image.planes[0].bytesPerRow;
-    final int cx = width ~/ 2;
-    final int cy = height ~/ 2;
-    const int range = 40;
-    int sum = 0, count = 0;
-    for (int y = cy - range; y < cy + range; y += 2) {
-      for (int x = cx - range; x < cx + range; x += 2) {
-        if (y >= 0 && y < height && x >= 0 && x < width) {
-          final int idx = y * yStride + x;
-          if (idx < yPlane.length) {
-            sum += yPlane[idx];
-            count++;
-          }
-        }
-      }
+  // ── Finger-loss check ─────────────────────────────────────────────────────
+
+  /// Returns true when the finger has been removed long enough to redirect.
+  bool _checkFingerLoss(CameraImage image) {
+    // Skip warmup — torch may not be fully stable yet
+    if (_warmupFrameCount < _kWarmupFrames) {
+      _warmupFrameCount++;
+      return false;
     }
-    return count > 0 ? sum / count : -1;
+
+    if (isLensCovered(image)) {
+      _consecutiveBadFrames = 0; // good frame — reset counter
+      return false;
+    } else {
+      _consecutiveBadFrames++;
+      return _consecutiveBadFrames >= _kBadFrameLimit;
+    }
   }
 
-  bool _isFingerStillPresent(double brightness) {
-    if (brightness < 0) return true;
-    if (_baselineBrightness <= 0) return true;
-    return brightness >= _baselineBrightness * (1.0 - _dropRatio);
-  }
+  // ── Redirect ──────────────────────────────────────────────────────────────
 
   void _triggerReturnToFingerGuide() {
     if (_isRedirecting) return;
@@ -130,7 +108,7 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
           await ctrl.setFlashMode(FlashMode.off);
           await ctrl.dispose();
         } catch (e) {
-          print('BP camera dispose on redirect: $e');
+          debugPrint('BP camera dispose on redirect: $e');
         }
       }
       if (mounted) {
@@ -156,48 +134,42 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
     });
   }
 
+  // ── Calibration ───────────────────────────────────────────────────────────
+
   List<double> _applyCalibration({
     required double sbp0,
     required double dbp0,
     required int height,
     required int weight,
   }) {
-    /// Example Ridge calibration weights
-    /// Replace with YOUR trained values later
     const List<List<double>> W = [
-      [0.92, 0.05, 0.01, 0.02], // SBP row
-      [0.03, 0.88, 0.00, 0.01], // DBP row
+      [0.92, 0.05, 0.01, 0.02],
+      [0.03, 0.88, 0.00, 0.01],
     ];
-
     const List<double> b = [3.5, 2.0];
 
     final x = [sbp0, dbp0, height.toDouble(), weight.toDouble()];
-
     double sbp = b[0];
     double dbp = b[1];
-
     for (int i = 0; i < x.length; i++) {
       sbp += W[0][i] * x[i];
       dbp += W[1][i] * x[i];
     }
-
     return [sbp, dbp];
   }
 
-  // Helper to parse string to int, handling decimal values
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
   int? _parseToInt(String? value) {
     if (value == null || value.isEmpty) return null;
-
-    // Try parsing as int first
     final intValue = int.tryParse(value);
     if (intValue != null) return intValue;
-
-    // If that fails, try parsing as double and convert to int
     final doubleValue = double.tryParse(value);
     if (doubleValue != null) return doubleValue.round();
-
     return null;
   }
+
+  // ── Load user data ────────────────────────────────────────────────────────
 
   Future<void> _loadUserDataAndInitCamera() async {
     final prefs = await SharedPreferences.getInstance();
@@ -210,7 +182,6 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
       return;
     }
 
-    // Debug: Show ALL user-related keys
     print('[BP] Checking stored data...');
     for (var key in prefs.getKeys()) {
       if (key.contains(loggedInEmail)) {
@@ -218,7 +189,6 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
       }
     }
 
-    // Load demographic data WITH email prefix
     final ageStr = prefs.getString('${loggedInEmail}_userAge');
     final heightStr = prefs.getString('${loggedInEmail}_userHeight');
     final weightStr = prefs.getString('${loggedInEmail}_userWeight');
@@ -227,7 +197,6 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
     print(
         '[BP] Raw values: age="$ageStr", height="$heightStr", weight="$weightStr", gender="$genderStr"');
 
-// Parse values - handle both integer and decimal strings
     _userAge = _parseToInt(ageStr);
     _userHeight = _parseToInt(heightStr);
     _userWeight = _parseToInt(weightStr);
@@ -235,7 +204,6 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
     print(
         '[BP] Parsed values: age=$_userAge, height=$_userHeight, weight=$_userWeight');
 
-    // Handle gender
     if (genderStr == 'Male') {
       _userGender = 1;
     } else if (genderStr == 'Female') {
@@ -244,17 +212,14 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
       _userGender = null;
     }
 
-    // Validate that all required fields are present
     if (_userAge == null || _userHeight == null || _userWeight == null) {
       print('[BP] ERROR - Missing or invalid profile data!');
-
       List<String> missingFields = [];
       if (_userAge == null) missingFields.add('Age (value: "$ageStr")');
       if (_userHeight == null)
         missingFields.add('Height (value: "$heightStr")');
       if (_userWeight == null)
         missingFields.add('Weight (value: "$weightStr")');
-
       _showErrorDialog('Incomplete Profile',
           'Missing or invalid data:\n\n${missingFields.join('\n')}\n\nPlease update your profile in the Profile tab.\n\nIf this persists, try logging out and back in.');
       return;
@@ -263,6 +228,8 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
     print('[BP] ✓ All data loaded successfully');
     _initializeCamera();
   }
+
+  // ── Camera init ───────────────────────────────────────────────────────────
 
   Future<void> _initializeCamera() async {
     CameraDescription? backCamera;
@@ -301,41 +268,48 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
       }
 
       await _controller!.setFlashMode(FlashMode.torch);
-      await _controller!.setExposureMode(ExposureMode.locked);
       await _controller!.setFocusMode(FocusMode.locked);
+      // Let auto-exposure adapt to the torch light BEFORE locking.
+      // Locking immediately captures a dark "normal scene" exposure value.
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      try {
+        final double minEV = await _controller!.getMinExposureOffset();
+        final double maxEV = await _controller!.getMaxExposureOffset();
+        // +1 EV makes the preview bright enough to see your finger.
+        final double targetEV = 1.0.clamp(minEV, maxEV);
+        await _controller!.setExposureOffset(targetEV);
+      } catch (_) {
+        // Exposure offset not supported on this device — safe to ignore.
+      }
+      await _controller!.setExposureMode(ExposureMode.locked);
 
       if (mounted) {
         setState(() {});
-        _cameraInitAttempts = 0; // Reset on success
+        _cameraInitAttempts = 0;
       }
 
-      // Auto-start collection
-      Future.delayed(const Duration(milliseconds: 600), () {
+      Future.delayed(const Duration(milliseconds: 200), () {
         if (mounted && !_isCollecting && !_isRedirecting) {
           _startCollection();
         }
       });
     } on CameraException catch (e) {
       print('[BP] Camera init error (attempt ${_cameraInitAttempts + 1}): $e');
-
       _cameraInitAttempts++;
-
       if (_cameraInitAttempts < _maxCameraInitAttempts) {
-        // Retry after a delay
         print('[BP] Retrying camera initialization...');
         await Future.delayed(const Duration(milliseconds: 500));
-        if (mounted) {
-          _initializeCamera();
-        }
+        if (mounted) _initializeCamera();
       } else {
-        // Max attempts reached
         _showErrorDialog('Camera Initialization Failed',
             'Could not access the camera after $_maxCameraInitAttempts attempts.\n\n${e.description ?? 'Please restart the app and try again.'}');
       }
     }
   }
 
-  // Fast strided sampler — every 4th pixel, ~16x faster, keeps fps near 30.
+  // ── Green signal extractor ───────────────────────────────────
+
   int _extractGreenValue(CameraImage image) {
     if (image.format.group != ImageFormatGroup.yuv420) return 128;
     final int width = image.width;
@@ -360,6 +334,8 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
     return count > 0 ? (sum / count).round() : 128;
   }
 
+  // ── Collection ────────────────────────────────────────────────────────────
+
   Future<void> _startCollection() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
     if (_userAge == null) return;
@@ -373,11 +349,9 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
       _isRedirecting = false;
       _isStoppingManually = false;
       _rawGreenSignal.clear();
-      _fingerWindow.clear();
-      _baselineBrightness = 0;
-      _warmupSum = 0;
-      _warmupCount = 0;
-      _consecutiveBadFrames = 0; // ADD THIS LINE
+      // Reset finger-loss counters
+      _warmupFrameCount = 0;
+      _consecutiveBadFrames = 0;
       _collectionStartTime = DateTime.now();
     });
 
@@ -387,32 +361,13 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
 
         _frameCounter++;
 
-        // Adaptive baseline + sliding window finger detection
-        final double brightness = _getMeanBrightness(image);
-
-        if (_frameCounter <= _warmupFrames) {
-          if (brightness > 0) {
-            _warmupSum += brightness.round();
-            _warmupCount += 1;
-            if (_frameCounter == _warmupFrames && _warmupCount > 0) {
-              _baselineBrightness = _warmupSum / _warmupCount;
-              print(
-                  '[BP FingDet] baseline=${_baselineBrightness.toStringAsFixed(1)}');
-            }
-          }
-        } else {
-          final bool fingerPresent = _isFingerStillPresent(brightness);
-          _fingerWindow.add(fingerPresent);
-          if (_fingerWindow.length > _windowSize) _fingerWindow.removeAt(0);
-          if (_fingerWindow.length >= _windowSize) {
-            final int badCount = _fingerWindow.where((v) => !v).length;
-            if (badCount > _badFrameLimit) {
-              _triggerReturnToFingerGuide();
-              return;
-            }
-          }
+        // ── Finger-loss check (RGB) — runs before signal collection ──────
+        if (_checkFingerLoss(image)) {
+          _triggerReturnToFingerGuide();
+          return; // don't add bad frames to the signal
         }
 
+        // ── Signal collection (unchanged) ────────────────────────────────
         final int greenValue = _extractGreenValue(image);
         if (greenValue > 10) _rawGreenSignal.add(greenValue);
 
@@ -420,9 +375,7 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
           final int samples = _rawGreenSignal.length;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && !_isRedirecting) {
-              setState(() {
-                _displaySamples = samples;
-              });
+              setState(() => _displaySamples = samples);
             }
           });
         }
@@ -433,7 +386,6 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
       return;
     }
 
-    // Countdown: _timeElapsed counts up, UI shows remaining
     _collectionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted || _isRedirecting) {
         timer.cancel();
@@ -464,7 +416,8 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
     }
   }
 
-// --- API Communication (UPDATED FOR TWO-STEP CALL) ---
+  // ── API ───────────────────────────────────────────────────────────────────
+
   Future<void> _sendDataForAnalysis() async {
     if (mounted)
       setState(() {
@@ -489,21 +442,19 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
       return;
     }
 
-    // --- 1. AUTHENTICATION & TOKEN FETCH ---
     final User? user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showErrorDialog(
-          "Authentication Required", "Please log in to perform measurements.");
+          'Authentication Required', 'Please log in to perform measurements.');
       return;
     }
     final String? idToken = await user.getIdToken();
     if (idToken == null) {
       _showErrorDialog(
-          "Authentication Error", "Could not retrieve user token.");
+          'Authentication Error', 'Could not retrieve user token.');
       return;
     }
 
-    // Check user demographic data (ensure required fields are present)
     if (_userAge == null || _userHeight == null || _userWeight == null) {
       _showErrorDialog(
           'Missing Data', 'Demographic data missing. Cannot estimate BP.');
@@ -532,21 +483,10 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
       'fs': fsToSend,
     };
 
-    final Map<String, dynamic> demographicData = {
-      'age': _userAge!,
-      'gender': _userGender!,
-      'height': _userHeight!,
-      'weight': _userWeight!,
-    };
-
-    if (mounted) {
-      setState(() {
-        _isProcessing = true;
-      });
-    }
+    if (mounted) setState(() => _isProcessing = true);
 
     try {
-      // 2. STEP 1: SIGNAL QUALITY CHECK (SQI)
+      // Step 1: SQI
       final sqiResponse = await http
           .post(
             Uri.parse(_sqiApiUrl),
@@ -559,29 +499,25 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
           .timeout(const Duration(seconds: 10));
 
       if (sqiResponse.statusCode != 200) {
-        // Handle SQI service error (e.g., internal server error, not SQI failure)
-        _showErrorDialog('SQI Service Error',
-            'API returned status code: ${sqiResponse.statusCode}. Check SQI server logs.');
+        _showErrorDialog('PPG Signal Quality Check Error',
+            'Fingertip PPG Signal Quality check failed. Please try again.');
         return;
       }
 
       final Map<String, dynamic> sqiResult = json.decode(sqiResponse.body);
 
-      // Check if SQI quality is GOOD
       if (sqiResult['quality'] != 'GOOD') {
         print('[BP] SQI check failed: ${sqiResult['reason']}');
 
-        // Stop and clean up camera FIRST
         final CameraController? ctrl = _controller;
         if (mounted) {
           setState(() {
-            _controller = null; // Null it immediately
+            _controller = null;
             _isProcessing = false;
             _isCollecting = false;
           });
         }
 
-        // Dispose camera on next frame
         if (ctrl != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             try {
@@ -594,7 +530,6 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
           });
         }
 
-        // Show dialog, then navigate back
         if (mounted) {
           await showDialog(
             context: context,
@@ -604,7 +539,10 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
                 children: const [
                   Icon(Icons.warning_rounded, color: Color(0xFFF56565)),
                   SizedBox(width: 8),
-                  Text('Poor PPG Signal Quality'),
+                  Flexible(
+                    child: Text(
+                        'Poor PPG Signal Quality! Try not pressing the camera too hard.'),
+                  ),
                 ],
               ),
               actions: [
@@ -619,7 +557,6 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
             ),
           );
 
-          // Navigate back to FingerGuideScreen with proper camera release flag
           if (mounted) {
             Navigator.pushReplacement(
               context,
@@ -636,14 +573,13 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
         return;
       }
 
-      // STEP 2: BASELINE BP ESTIMATION (PPG-only)
+      // Step 2: BP estimation
       final bpResponse = await http
           .post(
             Uri.parse(_bpEstimationApiUrl),
             headers: {
               'Content-Type': 'application/json',
-              'Authorization':
-                  'Bearer $idToken', // remove if your BP server has no auth
+              'Authorization': 'Bearer $idToken',
             },
             body: jsonEncode({
               'ppg_signal': ppgFloats,
@@ -655,11 +591,9 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
       if (bpResponse.statusCode == 200) {
         final Map<String, dynamic> bpResult = json.decode(bpResponse.body);
 
-        // --- BASELINE BP FROM SERVER ---
         final double sbp0 = (bpResult['sbp0'] as num).toDouble();
         final double dbp0 = (bpResult['dbp0'] as num).toDouble();
 
-        // --- LOCAL PERSONAL CALIBRATION ---
         final calibrated = _applyCalibration(
           sbp0: sbp0,
           dbp0: dbp0,
@@ -670,7 +604,6 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
         final int systolic = calibrated[0].round();
         final int diastolic = calibrated[1].round();
 
-        // --- SAVE RESULT ---
         final Map<String, dynamic> readingData = {
           'systolic': systolic,
           'diastolic': diastolic,
@@ -684,11 +617,9 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
         final loggedInUserEmail = prefs.getString('loggedInUserEmail') ?? '';
         final history =
             prefs.getStringList('${loggedInUserEmail}_bpHistory') ?? [];
-
         history.insert(0, jsonEncode(readingData));
         await prefs.setStringList('${loggedInUserEmail}_bpHistory', history);
 
-        // --- NAVIGATE TO RESULT ---
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -712,19 +643,14 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
     } catch (e) {
       _showErrorDialog('Network Error', 'Failed to connect: $e');
     } finally {
-      // This ensures that if the try/catch fails, the UI returns from processing state.
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
-  //  _showErrorDialog and dispose methods here
+  // ── Error dialog ──────────────────────────────────────────────────────────
+
   void _showErrorDialog(String title, String content) {
     _controller?.setFlashMode(FlashMode.off);
-    //_controller?.dispose();
     _controller = null;
 
     showDialog(
@@ -747,6 +673,8 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
     });
   }
 
+  // ── Dispose ───────────────────────────────────────────────────────────────
+
   @override
   void dispose() {
     _collectionTimer?.cancel();
@@ -754,20 +682,22 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
     super.dispose();
   }
 
-  // Build Method
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     if (_controller == null ||
         !_controller!.value.isInitialized ||
         _userAge == null) {
-      // Show loading or error if profile data/camera isn't ready
       return Scaffold(
         body: Center(
-            child: _userAge == null
-                ? const Text('Loading User Data...')
-                : const CircularProgressIndicator()),
+          child: _userAge == null
+              ? const Text('Loading User Data...')
+              : const CircularProgressIndicator(),
+        ),
       );
     }
+
     if (_isProcessing && !_isCollecting) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -792,16 +722,18 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: 10),
               Text(
                 'This may take up to 30 seconds.\nPlease keep the app open.',
-                style: TextStyle(color: Colors.white70, fontSize: 16),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, fontSize: 15),
               ),
             ],
           ),
         ),
       );
     }
+
     final int timeRemaining = _targetDurationSeconds - _timeElapsed;
     final double progress = _timeElapsed / _targetDurationSeconds;
 

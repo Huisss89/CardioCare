@@ -1150,14 +1150,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
     if (_filteredHrReadings.isEmpty) return const SizedBox.shrink();
 
     final hrValues = _filteredHrReadings.map((r) => r['hr'] as int).toList();
-    final hrvRaw = _filteredHrReadings.map((r) => r['hrv']).toList();
-    final hrvValues =
-        hrvRaw.map((v) => _safeParseHRV(v)).whereType<double>().toList();
-
     final avgHR = (hrValues.reduce((a, b) => a + b) / hrValues.length).round();
-    final int? avgHRV = hrvValues.isNotEmpty
-        ? (hrvValues.reduce((a, b) => a + b) / hrvValues.length).round()
-        : null;
     final minHR = hrValues.reduce((a, b) => a < b ? a : b);
     final maxHR = hrValues.reduce((a, b) => a > b ? a : b);
 
@@ -1169,9 +1162,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildStatItem('Avg HR', '$avgHR', const Color(0xFFFF6B9D)),
-            _buildStatItem('Avg HRV', avgHRV != null ? '$avgHRV' : '-',
-                const Color(0xFF667EEA)),
-            _buildStatItem('Range', '$minHR-$maxHR', const Color(0xFF4FACFE)),
+            _buildStatItem('Lowest HR', '$minHR', const Color(0xFF667EEA)),
+            _buildStatItem('Highest HR', '$maxHR', const Color(0xFF4FACFE)),
           ],
         ),
       ],

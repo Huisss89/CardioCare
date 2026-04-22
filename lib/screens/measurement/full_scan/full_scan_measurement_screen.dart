@@ -36,18 +36,21 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
 
   static const int _targetDurationSeconds = 20;
   static const double _targetFrameRate = 30;
-  static const int _warmupFrames = 30;
-  static const int _windowSize = 30;
-  static const int _badFrameLimit = 20;
-  static const double _dropRatio = 0.35;
-  static const int _immediateRedirectThreshold = 15;
   static const int _uiUpdateInterval = 10;
 
-  final List<bool> _fingerWindow = [];
-  double _baselineBrightness = 0;
-  int _warmupSum = 0;
-  int _warmupCount = 0;
+  // ── Finger-loss detection (RGB red-channel — matches FingerGuideScreen) ──
+  //
+  // Uses isLensCovered() exported from finger_guide_screen.dart.
+  // Thresholds: red > 150, green < 100, red-green > 80.
+  // No baseline needed — absolute check, not fooled by auto-exposure.
+  //
+  static const int _kWarmupFrames = 30; // ~1 s — let torch stabilise
+  static const int _kBadFrameLimit = 20; // ~0.67 s consecutive bad → redirect
+
+  int _warmupFrameCount = 0;
   int _consecutiveBadFrames = 0;
+  // ─────────────────────────────────────────────────────────────────────────
+
   int _frameCounter = 0;
   int _displaySamples = 0;
   bool _isRedirecting = false;
@@ -149,12 +152,26 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
       }
 
       await _controller!.setFlashMode(FlashMode.torch);
-      await _controller!.setExposureMode(ExposureMode.locked);
       await _controller!.setFocusMode(FocusMode.locked);
+      // Let auto-exposure adapt to the torch light BEFORE locking.
+      // Locking immediately captures a dark "normal scene" exposure value.
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      try {
+        final double minEV = await _controller!.getMinExposureOffset();
+        final double maxEV = await _controller!.getMaxExposureOffset();
+        // +1 EV makes the preview bright enough to see your finger.
+        final double targetEV = 1.0.clamp(minEV, maxEV);
+        await _controller!.setExposureOffset(targetEV);
+      } catch (_) {
+        // Exposure offset not supported on this device — safe to ignore.
+      }
+      await _controller!.setExposureMode(ExposureMode.locked);
 
       setState(() {});
 
-      Future.delayed(const Duration(milliseconds: 600), () {
+      // 200 ms is enough — we already waited 800 ms for exposure above.
+      Future.delayed(const Duration(milliseconds: 200), () {
         if (mounted && !_isCollecting && !_isRedirecting) {
           _startCollection();
         }
@@ -167,36 +184,26 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
     }
   }
 
-  double _getMeanBrightness(CameraImage image) {
-    if (image.format.group != ImageFormatGroup.yuv420) return -1;
-    final int width = image.width;
-    final int height = image.height;
-    final List<int> yPlane = image.planes[0].bytes;
-    final int yStride = image.planes[0].bytesPerRow;
-    final int cx = width ~/ 2;
-    final int cy = height ~/ 2;
-    const int range = 40;
-    int sum = 0;
-    int count = 0;
-    for (int y = cy - range; y < cy + range; y += 2) {
-      for (int x = cx - range; x < cx + range; x += 2) {
-        if (y >= 0 && y < height && x >= 0 && x < width) {
-          final int idx = y * yStride + x;
-          if (idx < yPlane.length) {
-            sum += yPlane[idx];
-            count++;
-          }
-        }
-      }
+  // ── Finger-loss check ─────────────────────────────────────────────────────
+
+  /// Returns true when the finger has been removed long enough to redirect.
+  bool _checkFingerLoss(CameraImage image) {
+    // Skip warmup — torch may not be fully stable yet
+    if (_warmupFrameCount < _kWarmupFrames) {
+      _warmupFrameCount++;
+      return false;
     }
-    return count > 0 ? sum / count : -1;
+
+    if (isLensCovered(image)) {
+      _consecutiveBadFrames = 0; // good frame — reset counter
+      return false;
+    } else {
+      _consecutiveBadFrames++;
+      return _consecutiveBadFrames >= _kBadFrameLimit;
+    }
   }
 
-  bool _isFingerStillPresent(double brightness) {
-    if (brightness < 0) return true;
-    if (_baselineBrightness <= 0) return true;
-    return brightness >= _baselineBrightness * (1.0 - _dropRatio);
-  }
+  // ── Green signal extractor (unchanged) ───────────────────────────────────
 
   int _extractGreenValue(CameraImage image) {
     if (image.format.group != ImageFormatGroup.yuv420) return 128;
@@ -222,6 +229,8 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
     }
     return count > 0 ? (sum / count).round() : 128;
   }
+
+  // ── Redirect (unchanged) ──────────────────────────────────────────────────
 
   void _triggerReturnToFingerGuide() {
     if (_isRedirecting) return;
@@ -268,6 +277,8 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
     });
   }
 
+  // ── Collection ────────────────────────────────────────────────────────────
+
   Future<void> _startCollection() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
 
@@ -280,10 +291,8 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
       _isRedirecting = false;
       _analysisStarted = false;
       _rawGreenSignal.clear();
-      _fingerWindow.clear();
-      _baselineBrightness = 0;
-      _warmupSum = 0;
-      _warmupCount = 0;
+      // Reset finger-loss counters
+      _warmupFrameCount = 0;
       _consecutiveBadFrames = 0;
       _collectionStartTime = DateTime.now();
     });
@@ -293,39 +302,14 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
         if (!_isCollecting || _isRedirecting || _analysisStarted) return;
 
         _frameCounter++;
-        final double brightness = _getMeanBrightness(image);
 
-        if (_frameCounter <= _warmupFrames) {
-          if (brightness > 0) {
-            _warmupSum += brightness.round();
-            _warmupCount += 1;
-            if (_frameCounter == _warmupFrames && _warmupCount > 0) {
-              _baselineBrightness = _warmupSum / _warmupCount;
-            }
-          }
-        } else {
-          final bool fingerPresent = _isFingerStillPresent(brightness);
-          if (!fingerPresent) {
-            _consecutiveBadFrames++;
-            if (_consecutiveBadFrames >= _immediateRedirectThreshold) {
-              _triggerReturnToFingerGuide();
-              return;
-            }
-          } else {
-            _consecutiveBadFrames = 0;
-          }
-
-          _fingerWindow.add(fingerPresent);
-          if (_fingerWindow.length > _windowSize) _fingerWindow.removeAt(0);
-          if (_fingerWindow.length >= _windowSize) {
-            final int badCount = _fingerWindow.where((v) => !v).length;
-            if (badCount > _badFrameLimit) {
-              _triggerReturnToFingerGuide();
-              return;
-            }
-          }
+        // ── Finger-loss check (RGB) — runs before signal collection ──────
+        if (_checkFingerLoss(image)) {
+          _triggerReturnToFingerGuide();
+          return; // don't add bad frames to the signal
         }
 
+        // ── Signal collection (unchanged) ────────────────────────────────
         final int greenValue = _extractGreenValue(image);
         if (greenValue > 10) _rawGreenSignal.add(greenValue);
 
@@ -363,6 +347,8 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
     });
   }
 
+  // ── Calibration (unchanged) ───────────────────────────────────────────────
+
   List<double> _applyCalibration({
     required double sbp0,
     required double dbp0,
@@ -386,6 +372,8 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
 
     return [sbp, dbp];
   }
+
+  // ── API (unchanged) ───────────────────────────────────────────────────────
 
   Future<void> _sendDataForAnalysis() async {
     if (mounted) {
@@ -454,8 +442,8 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
           .timeout(const Duration(seconds: 30));
 
       if (sqiResponse.statusCode != 200) {
-        _showErrorDialog('SQI Service Error',
-            'SQI API returned status code: ${sqiResponse.statusCode}.');
+        _showErrorDialog('PPG Signal Quality Check Error',
+            'Fingertip PPG Signal Quality check failed. Please try again.');
         return;
       }
 
@@ -535,14 +523,12 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
         'date': nowIso,
         'type': 'FULL_SCAN',
       };
-
       final Map<String, dynamic> hrReading = {
         'hr': hr,
         'hrv': hrv,
         'date': nowIso,
         'type': 'HR/HRV',
       };
-
       final Map<String, dynamic> bpReading = {
         'systolic': systolic,
         'diastolic': diastolic,
@@ -590,6 +576,8 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
     }
   }
 
+  // ── Stop collection (unchanged) ───────────────────────────────────────────
+
   Future<void> _stopCollection() async {
     _collectionTimer?.cancel();
     _collectionTimer = null;
@@ -608,6 +596,8 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
       });
     }
   }
+
+  // ── Error dialog (unchanged) ──────────────────────────────────────────────
 
   void _showErrorDialog(String title, String content) {
     try {
@@ -637,6 +627,8 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
     });
   }
 
+  // ── Dispose (unchanged) ───────────────────────────────────────────────────
+
   @override
   void dispose() {
     _isRedirecting = true;
@@ -654,6 +646,8 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
     }
     super.dispose();
   }
+
+  // ── Build (unchanged) ─────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -786,9 +780,7 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
                         shape: BoxShape.circle,
                         color: Colors.black.withOpacity(0.45),
                         border: Border.all(
-                          color: _isCollecting
-                              ? const Color.fromARGB(255, 250, 234, 57)
-                              : const Color.fromARGB(255, 250, 234, 57),
+                          color: const Color.fromARGB(255, 250, 234, 57),
                           width: 3,
                         ),
                       ),

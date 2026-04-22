@@ -156,7 +156,7 @@ class HRResultScreen extends StatelessWidget {
               Navigator.of(context).popUntil((route) => route.isFirst),
         ),
         title: const Text(
-          'Measurement Results',
+          'Heart Rate Results',
           style: TextStyle(color: Color(0xFF2D3748)),
         ),
       ),

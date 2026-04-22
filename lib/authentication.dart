@@ -42,6 +42,7 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  String errorMessage = "";
 
   // ── Entrance animation ───────────────────────────────────────
   late final AnimationController _enterCtrl;
@@ -67,21 +68,39 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  // ── All original logic — unchanged ──────────────────────────
   Future<void> _login() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter email and password')),
+        const SnackBar(content: Text('Please enter your email and password')),
       );
       return;
     }
+
+    final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w{2,}$');
+    if (!emailRegex.hasMatch(_emailController.text.trim())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid email address')),
+      );
+      return;
+    }
+
+    if (_passwordController.text.trim().length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password must be at least 6 characters')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
+
     try {
       final UserCredential userCredential =
           await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
       if (userCredential.user != null) {
         final userEmail = userCredential.user!.email!;
         final userDoc = await _firestore
@@ -91,6 +110,7 @@ class _LoginScreenState extends State<LoginScreen>
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('loggedInUserEmail', userEmail);
         await prefs.setBool('isLoggedIn', true);
+
         if (userDoc.exists) {
           final userData = userDoc.data()!;
           print('[LOGIN] Firestore data: $userData');
@@ -113,14 +133,16 @@ class _LoginScreenState extends State<LoginScreen>
         } else {
           print('[LOGIN] ERROR: User document does not exist in Firestore!');
         }
+
         await FirebaseAnalytics.instance.logEvent(
           name: "login_success",
           parameters: {"user_id": userCredential.user!.uid},
         );
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Welcome Back, $userEmail!')),
-        );
+
         if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Welcome Back, $userEmail!')),
+          );
           Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -128,23 +150,33 @@ class _LoginScreenState extends State<LoginScreen>
         }
       }
     } on FirebaseAuthException catch (e) {
-      String errorMessage = "An unknown authentication error occurred.";
-      if (e.code == 'user-not-found')
-        errorMessage = 'No user found for that email.';
-      else if (e.code == 'wrong-password')
-        errorMessage = 'Wrong password provided.';
-      else if (e.code == 'invalid-email')
-        errorMessage = 'The email address is not valid.';
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(errorMessage)));
-      await FirebaseAnalytics.instance.logEvent(
-        name: "login_failure",
-        parameters: {"email": _emailController.text, "error_code": e.code},
-      );
+      String errorMessage;
+      switch (e.code) {
+        case 'network-request-failed':
+          errorMessage =
+              'No internet connection. Please check your network and try again.';
+          break;
+        case 'invalid-credential':
+          errorMessage =
+              'The supplied credential is incorrect. Please register an account before login.';
+          break;
+        default:
+          errorMessage = 'Login failed: ${e.message ?? e.code}';
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(errorMessage)));
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              'An unexpected error occurred. Please check your internet is connected and try again.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No internet connection. Please check your network and try again.',
+            ),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -224,11 +256,33 @@ class _LoginScreenState extends State<LoginScreen>
         }
       }
     } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google Sign-In failed: ${e.message}')));
+      String errorMessage;
+      switch (e.code) {
+        case 'network-request-failed':
+          errorMessage =
+              'No internet connection. Please check your network and try again.';
+          break;
+        case 'account-exists-with-different-credential':
+          errorMessage =
+              'An account already exists with a different sign-in method.';
+          break;
+        default:
+          errorMessage = 'Google Sign-In failed: ${e.message ?? e.code}';
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(errorMessage)));
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Google Sign-In failed. Please try again.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No internet connection. Please check your network and try again.',
+            ),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
     }
@@ -681,14 +735,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _showErrorSnackbar('Please enter a realistic age between 5 and 100.');
       return false;
     }
-    if (weight == null || weight < 20.0 || weight > 250.0) {
+    if (weight == null || weight < 20.0 || weight > 200.0) {
       _showErrorSnackbar(
-          'Please enter a realistic weight between 20 to 250 kg.');
+          'Please enter a realistic weight between 20 and 200 kg.');
       return false;
     }
-    if (height == null || height < 50.0 || height > 250.0) {
+    if (height == null || height < 50.0 || height > 200.0) {
       _showErrorSnackbar(
-          'Please enter a realistic height between 50 to 250 cm.');
+          'Please enter a realistic height between 50 and 200 cm.');
       return false;
     }
     return true;
@@ -752,11 +806,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
       String errorMessage =
           "A network error occurred. Please try again with stable network connection.";
       if (e.code == 'weak-password')
-        errorMessage = 'The password provided is too weak.';
+        errorMessage = 'The password provided is too weak. Password must be at least 6 characters.';
       else if (e.code == 'email-already-in-use')
         errorMessage = 'The account already exists for that email.';
       else if (e.code == 'invalid-email')
-        errorMessage = 'The email address is not valid.';
+        errorMessage = 'Please enter a valid email address.';
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage), backgroundColor: Colors.red));
       await FirebaseAnalytics.instance.logEvent(

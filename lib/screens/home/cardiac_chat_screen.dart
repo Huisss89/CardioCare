@@ -7,6 +7,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import '../../config/app_config.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN TOKENS
@@ -319,6 +320,10 @@ HRV series   : ${fmt(hrv)}${stats(hrv)}
   Future<void> _sendMessage([String? override]) async {
     final text = override ?? _controller.text.trim();
     if (text.isEmpty || _isLoading) return;
+    if (!await _hasNetwork()) {
+      _showNetworkError();
+      return;
+    }
     _controller.clear();
 
     setState(() {
@@ -354,6 +359,11 @@ HRV series   : ${fmt(hrv)}${stats(hrv)}
       });
       return;
     }
+    if (!await _hasNetwork()) {
+      _showNetworkError();
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -383,19 +393,27 @@ HRV series   : ${fmt(hrv)}${stats(hrv)}
             promptOverride: promptOverride,
             saveUserMsg: saveUserMsg);
       } else {
-        setState(() {
-          _messages.insert(
-              0,
-              _ChatMsg(
-                role: 'model',
-                text:
-                    '⚠️ All AI models are currently busy. Please try again in a moment.',
-                time: DateTime.now(),
-                isError: true,
-              ));
-          _isLoading = false;
-          _showSuggestions = true;
-        });
+        final isNetworkErr = err.contains('socketexception') ||
+            err.contains('network') ||
+            err.contains('connection') ||
+            err.contains('unreachable');
+        if (isNetworkErr) {
+          _showNetworkError();
+        } else {
+          setState(() {
+            _messages.insert(
+                0,
+                _ChatMsg(
+                  role: 'model',
+                  text:
+                      '⚠️ All AI models are currently busy. Please try again in a moment.',
+                  time: DateTime.now(),
+                  isError: true,
+                ));
+            _showSuggestions = true;
+          });
+        }
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -407,6 +425,25 @@ HRV series   : ${fmt(hrv)}${stats(hrv)}
             duration: const Duration(milliseconds: 350), curve: Curves.easeOut);
       }
     });
+  }
+
+  // ── Network check ──────────────────────────────────────────────
+  Future<bool> _hasNetwork() async {
+    final result = await Connectivity().checkConnectivity();
+    return result != ConnectivityResult.none;
+  }
+
+  void _showNetworkError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'A network error occurred. Please try again with a stable network connection.',
+        ),
+        backgroundColor: _red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════

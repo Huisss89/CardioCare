@@ -32,7 +32,6 @@ dependencies:
   firebase_analytics: ^11.0.0
   cloud_firestore: ^5.4.4
 
-  # SCIDART AND NUMDART (CRITICAL FOR PPG PROCESSING)
   #numdart: ^0.0.1
   http: ^1.2.1 # or the latest version
   google_sign_in: ^6.2.1
@@ -51,10 +50,10 @@ dependencies:
 
   # Network Checks
   connectivity_plus: ^5.0.0
-
+  
   # AI Assistant
   google_generative_ai: ^0.4.6
-  flutter_markdown: ^0.7.3   # if not already added
+  flutter_markdown: ^0.7.3  
 
 dev_dependencies:
   flutter_test:
