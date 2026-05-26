@@ -535,23 +535,16 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
             context: context,
             barrierDismissible: false,
             builder: (context) => AlertDialog(
-              title: Row(
-                children: const [
-                  Icon(Icons.warning_rounded, color: Color(0xFFF56565)),
-                  SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                        'Poor PPG Signal Quality! Try not pressing the camera too hard.'),
-                  ),
-                ],
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              title: const Text('Poor Fingertip Signal Quality'),
+              content: const Text(
+                '\nTips: keep finger flat and still, avoid pressing too hard.',
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Try Again',
-                      style: TextStyle(
-                          color: Color(0xFF667EEA),
-                          fontWeight: FontWeight.bold)),
+                  child: const Text('OK'),
                 ),
               ],
             ),
@@ -638,8 +631,8 @@ class _BPMeasurementScreenState extends State<BPMeasurementScreen> {
             'API returned status code: ${bpResponse.statusCode}. Check Render logs.');
       }
     } on TimeoutException {
-      _showErrorDialog('Connection Timeout',
-          'The server took too long to respond. Please check connection or server status.');
+      _showErrorDialog(
+          'Connection Timeout', 'Server response timeout. Please try again.');
     } catch (e) {
       _showErrorDialog('Network Error', 'Failed to connect: $e');
     } finally {

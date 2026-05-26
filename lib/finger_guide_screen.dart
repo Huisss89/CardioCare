@@ -1,8 +1,3 @@
-// finger_guide_screen.dart
-//
-// Design  : old code (3-state ring, radial gradient, animated panel)
-// Detection: new code (YUV→RGB red-channel dominance, FingerLossMixin)
-
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'dart:math' as math;
@@ -11,22 +6,6 @@ import 'utils/camera_utils.dart';
 import 'screens/measurement/bp/bp_measurement_screen.dart';
 import 'screens/measurement/hr/hr_measurement_screen.dart';
 import 'screens/measurement/full_scan/full_scan_measurement_screen.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  IMAGE PROCESSING  (ported from Java ImageProcessing.java)
-//
-//  Converts YUV420SP (NV21) bytes → RGB, then returns the average of
-//  one channel across the whole frame.
-//    type 1 = Red
-//    type 2 = Blue
-//    type 3 = Green
-//
-//  WHY RED CHANNEL?
-//  Blood absorbs green/blue light but reflects red. When the torch shines
-//  through a fingertip, the red channel average is HIGH (> 150) and stays
-//  very stable. Any other object (desk, air, cloth) will have a much lower
-//  or noisier red average.
-// ─────────────────────────────────────────────────────────────────────────────
 
 const int _TYPE_RED = 1;
 const int _TYPE_BLUE = 2;
@@ -103,8 +82,8 @@ const double _kMinRedAvg = 150.0;
 const double _kMaxGreenAvg = 100.0;
 const double _kMinRedGreenGap = 80.0;
 const int _kFramesToConfirm = 10; // consecutive good frames → proceed
-const int _kBadFrameLimit = 20;   // consecutive bad frames  → reprompt
-const int _kUiInterval = 4;       // setState every N frames
+const int _kBadFrameLimit = 20; // consecutive bad frames  → reprompt
+const int _kUiInterval = 4; // setState every N frames
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  SHARED HELPERS
@@ -166,21 +145,6 @@ bool isLensCovered(CameraImage image) {
       (red - green) >= _kMinRedGreenGap;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  FINGER LOSS MIXIN
-//
-//  Add to any measurement screen State to detect mid-measurement finger loss.
-//
-//  Usage:
-//    class _HRMeasurementScreenState extends State<HRMeasurementScreen>
-//        with FingerLossMixin {
-//
-//      void _onFrame(CameraImage image) {
-//        checkCoverage(image, context, widget.cameras, 'hr');
-//        // ... rest of your processing unchanged
-//      }
-//    }
-// ─────────────────────────────────────────────────────────────────────────────
 mixin FingerLossMixin<T extends StatefulWidget> on State<T> {
   int _badFrames = 0;
   bool _lossNavigating = false;
@@ -276,12 +240,12 @@ class _FingerGuideScreenState extends State<FingerGuideScreen>
     with SingleTickerProviderStateMixin {
   CameraController? _controller;
 
-  // ── Detection state (3 levels matching old UI) ────────────────────────────
+  // ── Detection state  ────────────────────────────
   // Level 0: no finger   → white  "Place finger"
   // Level 1: partial/red seen but not yet confirmed → yellow "Almost ready"
   // Level 2: confirmed   → green  "Hold steady"
   bool _isFingerDetected = false; // level ≥ 1 (red seen this frame)
-  bool _isStable = false;         // level 2  (kFramesToConfirm consecutive)
+  bool _isStable = false; // level 2  (kFramesToConfirm consecutive)
 
   int _goodFrames = 0;
   int _frameCount = 0;
@@ -411,9 +375,7 @@ class _FingerGuideScreenState extends State<FingerGuideScreen>
 
       // "Almost ready": red is rising but not yet fully confirmed
       // (red > 100 and starting to dominate) — maps to old yellow state
-      final bool partial = !covered &&
-          red > 100 &&
-          (red - green) > 30;
+      final bool partial = !covered && red > 100 && (red - green) > 30;
 
       if (covered) {
         _goodFrames++;
@@ -706,8 +668,7 @@ class _FingerGuideScreenState extends State<FingerGuideScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircularProgressIndicator(
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(Color(0xFF667EEA))),
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667EEA))),
               SizedBox(height: 16),
               Text('Starting camera...',
                   style: TextStyle(color: Colors.white70, fontSize: 16)),
@@ -719,10 +680,10 @@ class _FingerGuideScreenState extends State<FingerGuideScreen>
 
     // ── 3-state colours ────────────────────────
     final Color ringColor = _isStable
-        ? const Color(0xFF48BB78)         // green  — confirmed
+        ? const Color(0xFF48BB78) // green  — confirmed
         : _isFingerDetected
-            ? const Color(0xFFECC94B)     // yellow — partial / almost
-            : Colors.white54;             // white  — no finger
+            ? const Color(0xFFECC94B) // yellow — partial / almost
+            : Colors.white54; // white  — no finger
 
     final String ringText = _isStable
         ? 'Hold\nsteady'
@@ -777,8 +738,7 @@ class _FingerGuideScreenState extends State<FingerGuideScreen>
                   child: Row(
                     children: [
                       IconButton(
-                        icon:
-                            const Icon(Icons.arrow_back, color: Colors.white),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                         onPressed: () {
                           _isNavigating = true;
                           Navigator.pop(context);
@@ -913,8 +873,8 @@ class _FingerGuideScreenState extends State<FingerGuideScreen>
           width: 22,
           height: 22,
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-                colors: [Color(0xFF667EEA), Color(0xFF764BA2)]),
+            gradient:
+                LinearGradient(colors: [Color(0xFF667EEA), Color(0xFF764BA2)]),
             shape: BoxShape.circle,
           ),
           child: Center(

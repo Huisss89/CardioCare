@@ -447,14 +447,11 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
         return;
       }
 
-      final Map<String, dynamic> sqiResult = jsonDecode(sqiResponse.body);
+      final Map<String, dynamic> sqiResult = json.decode(sqiResponse.body);
       if (sqiResult['quality'] != 'GOOD') {
         _showErrorDialog(
-          'Poor Signal Quality',
-          '${sqiResult['reason']}\n\nTips:\n'
-              '- Keep finger flat on camera\n'
-              '- Stay still\n'
-              '- Don\'t press too hard',
+          'Poor Fingertip Signal Quality',
+          '\nTips: keep finger flat and still, avoid pressing too hard.',
         );
         return;
       }
@@ -576,7 +573,7 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
     }
   }
 
-  // ── Stop collection (unchanged) ───────────────────────────────────────────
+  // ── Stop collection ───────────────────────────────────────────
 
   Future<void> _stopCollection() async {
     _collectionTimer?.cancel();
@@ -597,7 +594,7 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
     }
   }
 
-  // ── Error dialog (unchanged) ──────────────────────────────────────────────
+  // ── Error dialog ──────────────────────────────────────────────
 
   void _showErrorDialog(String title, String content) {
     try {
@@ -621,13 +618,21 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
       ),
     ).then((_) {
       if (mounted) {
-        Navigator.of(context).popUntil(
-            (route) => route.isFirst || route.settings.name == '/home');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FingerGuideScreen(
+              cameras: widget.cameras,
+              cameraAlreadyReleased: true,
+              measurementType: 'full',
+            ),
+          ),
+        );
       }
     });
   }
 
-  // ── Dispose (unchanged) ───────────────────────────────────────────────────
+  // ── Dispose  ───────────────────────────────────────────────────
 
   @override
   void dispose() {
@@ -647,7 +652,7 @@ class _FullScanMeasurementScreenState extends State<FullScanMeasurementScreen> {
     super.dispose();
   }
 
-  // ── Build (unchanged) ─────────────────────────────────────────────────────
+  // ── Build ─────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {

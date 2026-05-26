@@ -440,8 +440,8 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
       final Map<String, dynamic> sqiResult = json.decode(sqiResponse.body);
       if (sqiResult['quality'] != 'GOOD') {
         _showErrorDialog(
-          'Poor Signal Quality',
-          '${sqiResult['reason']}.\n\nTips: keep finger flat and still, avoid pressing too hard.',
+          'Poor Fingertip Signal Quality',
+          '\nTips: keep finger flat and still, avoid pressing too hard.',
         );
         return;
       }
@@ -505,18 +505,15 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
               .substring(0, hrResponse.body.length.clamp(0, 150));
         }
         _showErrorDialog(
-          'Server Error (${hrResponse.statusCode})',
+          'Server Error. It may be waking up. \nHR and HRV estimation failed. Please try again.',
           detail.isNotEmpty
               ? detail
-              : 'HR estimation failed. Please try again.',
+              : 'HR and HRV estimation failed. Please try again.',
         );
       }
     } on TimeoutException {
       _showErrorDialog(
-        'Connection Timeout',
-        'Server is slow to respond. It may be waking up. '
-            'Please wait a moment and try again.',
-      );
+          'Connection Timeout', 'Server response timeout. Please try again.');
     } catch (e) {
       _showErrorDialog('Network Error', 'Could not reach the server: $e');
     } finally {
@@ -546,8 +543,16 @@ class _HRMeasurementScreenState extends State<HRMeasurementScreen> {
       ),
     ).then((_) {
       if (mounted) {
-        Navigator.of(context).popUntil(
-            (route) => route.isFirst || route.settings.name == '/home');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FingerGuideScreen(
+              cameras: widget.cameras,
+              cameraAlreadyReleased: true,
+              measurementType: 'hr',
+            ),
+          ),
+        );
       }
     });
   }
