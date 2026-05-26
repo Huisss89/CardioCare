@@ -46,7 +46,7 @@ Predicts BP
     - AI Assistant Chatbot for health-related queries
 
 ## 📱 Application Demostration
-<img width="1159" height="651" alt="image" src="https://github.com/user-attachments/assets/1aeec169-a9d4-4a34-8213-73b4298568e8" />]([https://youtu.be/vt5fpE0bzSY](https://www.youtube.com/watch?v=t7qQnePULQI))
+[![Watch the video](<img width="1159" height="651" alt="image" src="https://github.com/user-attachments/assets/1aeec169-a9d4-4a34-8213-73b4298568e8" />)]([https://youtu.be/vt5fpE0bzSY](https://www.youtube.com/watch?v=t7qQnePULQI))
 
 
 ## 👨🏻‍💻Technical Components - Products and Platforms
