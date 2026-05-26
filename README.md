@@ -33,6 +33,10 @@ The application integrates AI-driven analytics to provide personalized health in
 |![Measurement Screen](assets/images/Measurement.png) | 
 
 
+## 📱 Application Demostration
+[![Watch the video](https://github.com/user-attachments/assets/1aeec169-a9d4-4a34-8213-73b4298568e8)](https://www.youtube.com/watch?v=t7qQnePULQI)
+
+
 ## 💡 Features
 
 - PPG-Based Cardiac Monitoring
@@ -44,9 +48,6 @@ Predicts BP
     - Trend analysis of HR, HRV, and BP
     - Personalized lifestyle recommendations
     - AI Assistant Chatbot for health-related queries
-
-## 📱 Application Demostration
-[![Watch the video](https://github.com/user-attachments/assets/1aeec169-a9d4-4a34-8213-73b4298568e8)](https://www.youtube.com/watch?v=t7qQnePULQI)
 
 
 ## 👨🏻‍💻Technical Components - Products and Platforms
